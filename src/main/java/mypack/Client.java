@@ -17,13 +17,15 @@ import java.net.UnknownHostException;
 
 public class Client {
     private String name;
-    private boolean connectedToServer;
+    private static boolean connectedToServer;
+    private static boolean connectionNeeded;
+    private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
     private JFrame frame = new JFrame("Messenger");
     private JTextField message = new JTextField(40);
     private JTextArea chat = new JTextArea(8, 40);
-    private JButton connectButton = new JButton("Connect/Disconnect");
+    private static JButton connectButton = new JButton("Connect");
 
 
     public Client() {
@@ -40,11 +42,11 @@ public class Client {
         frame.setVisible(true);
         frame.pack();
 
-        // Add Listeners
+
         message.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent e) {
-                out.print(sendTo() + '|');
+                out.print("TO " + sendTo()+":");
                 out.println(message.getText());
                 message.setText("");
             }
@@ -54,13 +56,15 @@ public class Client {
             public void actionPerformed(ActionEvent e) {
                 if (connectedToServer) {
                     connectedToServer = false;
+                    connectButton.setText("Connect");
+                    out.println("DISCONNECT");
                     chat.setText("");
                 } else {
-                    run();
+                    connectionNeeded = true;
                 }
             }
         });
-        run();
+        connectionNeeded = true;
     }
 
     private String getServerAddress() {
@@ -86,50 +90,96 @@ public class Client {
                 "Enter the person`s name you want to send the message",
                 JOptionPane.PLAIN_MESSAGE);
     }
-    private void warning() {
-        JOptionPane.showMessageDialog(frame, "Problem with the server");
+
+    private void warning(String message) {
+        JOptionPane.showMessageDialog(frame, message);
     }
 
+    private String getAddress(){
+        String serverAddress = null;
+        while (serverAddress == null || serverAddress.isEmpty()){
+            serverAddress = getServerAddress();
+        }
+        return serverAddress;
+    }
 
-    private void run() {
+    /**
+     * makes sure the returned socket is working
+     * @return working socket
+     */
+    private Socket getConnectedSocket()  {
+        Socket socket = null;
+        while (socket == null || !socket.isConnected()){
+            String serverAddress = getAddress();
+            try {
+                socket = new Socket(serverAddress, 9001);
+            } catch (IOException e) {
+                e.printStackTrace();
+                warning("Not valid ip");
+            }
+        }
+        return socket;
+    }
+    private boolean getConnection(){
+        socket = getConnectedSocket();
         try {
-            // Make connection and initialize streams
-            String serverAddress = getServerAddress();
-            Socket socket = new Socket(serverAddress, 9001);
             in = new BufferedReader(new InputStreamReader(
                     socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
-            connectedToServer = true;
-            // Process all messages from server, according to the protocol.
-            while (connectedToServer) {
+            connectButton.setText("Disconnect");
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * listening to server
+     */
+    private void run() {
+        try {
+            connectedToServer = getConnection();
+            while (true) {
                 String line = in.readLine();
                 if (line.startsWith("SUBMITNAME")) {
                     name = getName();
                     out.println(name);
                 } else if (line.startsWith("NAMEACCEPTED")) {
                     message.setEditable(true);
+                    frame.setTitle("Messenger for " + name);
                 } else if (line.startsWith("MESSAGE")) {
                     chat.append(line.substring(8) + "\n");
+                } else if (line.startsWith("DISCONNECT")){
+                    in.close();
+                    out.close();
+                    socket.close();
+                    connectedToServer = false;
+                    connectButton.setText("Connect");
+                    break;
+                } else if (line.startsWith("NOTAVAILABLE")){
+                    warning("Message was not delivered, user is offline");
                 }
             }
-            if(!connectedToServer){
-                out.close();
-                in.close();
-                socket.close();
 
-            }
         } catch (UnknownHostException e) {
             e.printStackTrace();
-            warning();
+            warning("Server error");
         } catch (IOException e) {
             e.printStackTrace();
-            warning();
+            warning("Server error");
         }
     }
 
 
     public static void main(String[] args) throws Exception {
         Client client = new Client();
+        while (true){
+            if (connectionNeeded){
+                client.run();
+                connectionNeeded = false;
+            }
+        }
 
     }
 }

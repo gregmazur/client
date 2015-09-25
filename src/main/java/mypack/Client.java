@@ -154,39 +154,33 @@ public class Client {
         try {
             connectedToServer = getConnection();
             while (true) {
-                BASE:
-                {
-                    Thread.sleep(10);
-                    String line = in.readLine();
-                    if (line == null) {
-                        break BASE;
-                    }
-                    if (out == null) {
-                        socket.close();
-                        connectedToServer = false;
-                        connectButton.setText("Connect");
-                    }
-                    if (line.startsWith("SUBMITNAME")) {
-                        name = getValidName();
-                        out.println("NAME " + name);
-                    } else if (line.startsWith("NAMEACCEPTED")) {
-                        message.setEditable(true);
-                        frame.setTitle("Messenger for " + name);
-                    } else if (line.startsWith("MESSAGE")) {
-                        chat.append(line.substring(8) + "\n");
-                    } else if (line.startsWith("DISCONNECT")) {
-                        in.close();
-                        out.close();
-                        socket.close();
-                        connectedToServer = false;
-                        connectButton.setText("Connect");
-                        break;
-                    } else if (line.startsWith("NOTAVAILABLE")) {
-                        warning("Message was not delivered, user is offline");
-                    }
+                Thread.sleep(10);
+                String line = in.readLine();
+                if (line == null) {
+
+                } else if (out == null) {
+                    socket.close();
+                    connectedToServer = false;
+                    connectButton.setText("Connect");
+                } else if (line.startsWith("SUBMITNAME")) {
+                    name = getValidName();
+                    out.println("NAME " + name);
+                } else if (line.startsWith("NAMEACCEPTED")) {
+                    message.setEditable(true);
+                    frame.setTitle("Messenger for " + name);
+                } else if (line.startsWith("MESSAGE")) {
+                    chat.append(line.substring(8) + "\n");
+                } else if (line.startsWith("DISCONNECT")) {
+                    in.close();
+                    out.close();
+                    socket.close();
+                    connectedToServer = false;
+                    connectButton.setText("Connect");
+                    break;
+                } else if (line.startsWith("NOTAVAILABLE")) {
+                    warning("Message was not delivered, user is offline");
                 }
             }
-
         } catch (UnknownHostException e) {
             e.printStackTrace();
             warning("Server error");
@@ -202,6 +196,7 @@ public class Client {
     public static void main(String[] args) throws Exception {
         Client client = new Client();
         while (true) {
+            Thread.sleep(10);
             if (connectionNeeded) {
                 client.run();
                 connectionNeeded = false;
